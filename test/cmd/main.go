@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	webappv1 "github.com/elastic/crd-ref-docs/api/v1"
-	"github.com/elastic/crd-ref-docs/internal/controller"
+	webappv1 "github.com/xigxog/crd-ref-docs/api/v1"
+	"github.com/xigxog/crd-ref-docs/internal/controller"
 	//+kubebuilder:scaffold:imports
 )
 

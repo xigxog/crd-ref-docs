@@ -1,4 +1,4 @@
-module github.com/elastic/crd-ref-docs
+module github.com/xigxog/crd-ref-docs
 
 go 1.20
 

@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elastic/crd-ref-docs/config"
-	"github.com/elastic/crd-ref-docs/processor"
-	"github.com/elastic/crd-ref-docs/renderer"
 	"github.com/spf13/cobra"
+	"github.com/xigxog/crd-ref-docs/config"
+	"github.com/xigxog/crd-ref-docs/processor"
+	"github.com/xigxog/crd-ref-docs/renderer"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

@@ -1,4 +1,4 @@
-![](https://github.com/elastic/crd-ref-docs/workflows/Build/badge.svg)
+![](https://github.com/xigxog/crd-ref-docs/workflows/Build/badge.svg)
 
 
 CRD Reference Documentation Generator
@@ -15,7 +15,7 @@ Usage
 Pre-built Linux binaries can be downloaded from the Github Releases tab. Alternatively, you can download and build the source with Go tooling:
 
 ```
-go get -u github.com/elastic/crd-ref-docs
+go get -u github.com/xigxog/crd-ref-docs
 ```
 
 The tool can be invoked as follows to generate documentation:

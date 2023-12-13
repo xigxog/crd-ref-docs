@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/elastic/crd-ref-docs/config"
+	"github.com/xigxog/crd-ref-docs/config"
 )
 
 func compileConfig(conf *config.Config) (cc *compiledConfig, err error) {

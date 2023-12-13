@@ -6,7 +6,7 @@ domain: test.k8s.elastic.co
 layout:
 - go.kubebuilder.io/v4
 projectName: tmp
-repo: github.com/elastic/crd-ref-docs
+repo: github.com/xigxog/crd-ref-docs
 resources:
 - api:
     crdVersion: v1
@@ -15,6 +15,6 @@ resources:
   domain: test.k8s.elastic.co
   group: webapp
   kind: Guestbook
-  path: github.com/elastic/crd-ref-docs/api/v1
+  path: github.com/xigxog/crd-ref-docs/api/v1
   version: v1
 version: "3"

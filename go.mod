@@ -4,7 +4,6 @@ go 1.20
 
 require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
-	github.com/elastic/crd-ref-docs v0.0.10
 	github.com/goccy/go-yaml v1.11.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.2

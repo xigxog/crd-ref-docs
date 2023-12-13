@@ -24,9 +24,9 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig"
-	"github.com/elastic/crd-ref-docs/config"
-	"github.com/elastic/crd-ref-docs/templates"
-	"github.com/elastic/crd-ref-docs/types"
+	"github.com/xigxog/crd-ref-docs/config"
+	"github.com/xigxog/crd-ref-docs/templates"
+	"github.com/xigxog/crd-ref-docs/types"
 	"sigs.k8s.io/controller-tools/pkg/crd/markers"
 )
 
