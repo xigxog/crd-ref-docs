@@ -124,8 +124,6 @@ func (m *MarkdownRenderer) RenderType(t *types.Field) string {
 }
 
 func (m *MarkdownRenderer) RenderValidation(f *types.Field) string {
-	fmt.Printf("%#v\n", f)
-
 	var v []string
 	if f.Markers.Get("kubebuilder:validation:Required") != nil {
 		v = append(v, "required")
