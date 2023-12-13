@@ -72,7 +72,7 @@ func Process(config *config.Config) ([]types.GroupVersionDetails, error) {
 			return nil, fmt.Errorf("type not loaded: %s", typeName)
 		}
 
-		for ref, _ := range refs {
+		for ref := range refs {
 			if rd, ok := p.types[ref]; ok {
 				typeDef.References = append(typeDef.References, rd)
 			}
@@ -83,7 +83,7 @@ func Process(config *config.Config) ([]types.GroupVersionDetails, error) {
 	var gvDetails []types.GroupVersionDetails
 	for _, gvi := range p.groupVersions {
 		details := types.GroupVersionDetails{GroupVersion: gvi.GroupVersion, Doc: gvi.doc}
-		for k, _ := range gvi.kinds {
+		for k := range gvi.kinds {
 			details.Kinds = append(details.Kinds, k)
 		}
 
@@ -161,7 +161,14 @@ func (p *processor) findAPITypes(directory string) error {
 	for _, pkg := range pkgs {
 		gvInfo := p.extractGroupVersionIfExists(p.parser.Collector, pkg)
 		if gvInfo == nil {
-			continue
+			gvInfo = &groupVersionInfo{
+				GroupVersion: schema.GroupVersion{
+					Group:   "kubefox.xigxog.io",
+					Version: "v1alpha1",
+				},
+				doc:     p.extractPkgDocumentation(pkg),
+				Package: pkg,
+			}
 		}
 
 		if p.shouldIgnoreGroupVersion(gvInfo.GroupVersion.String()) {

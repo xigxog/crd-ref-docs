@@ -1,15 +1,10 @@
 {{- define "gvList" -}}
 {{- $groupVersions := . -}}
 
-# API Reference
+# Kubernetes CRDs
 
-## Packages
 {{- range $groupVersions }}
-- {{ markdownRenderGVLink . }}
-{{- end }}
-
-{{ range $groupVersions }}
 {{ template "gvDetails" . }}
-{{ end }}
+{{- end }}
 
 {{- end -}}

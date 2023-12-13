@@ -27,6 +27,7 @@ import (
 	"github.com/elastic/crd-ref-docs/config"
 	"github.com/elastic/crd-ref-docs/templates"
 	"github.com/elastic/crd-ref-docs/types"
+	"sigs.k8s.io/controller-tools/pkg/crd/markers"
 )
 
 type MarkdownRenderer struct {
@@ -61,7 +62,7 @@ func (m *MarkdownRenderer) Render(gvd []types.GroupVersionDetails) error {
 		return err
 	}
 
-	f, err := createOutFile(m.conf.OutputPath, "out.md")
+	f, _ := createOutFile(m.conf.OutputPath, "out.md")
 	defer f.Close()
 
 	return tmpl.ExecuteTemplate(f, mainTemplate, gvd)
@@ -75,6 +76,7 @@ func (m *MarkdownRenderer) ToFuncMap() template.FuncMap {
 		"RenderLocalLink":    m.RenderLocalLink,
 		"RenderType":         m.RenderType,
 		"RenderTypeLink":     m.RenderTypeLink,
+		"RenderValidation":   m.RenderValidation,
 		"SafeID":             m.SafeID,
 		"ShouldRenderType":   m.ShouldRenderType,
 		"TypeID":             m.TypeID,
@@ -86,24 +88,65 @@ func (m *MarkdownRenderer) ShouldRenderType(t *types.Type) bool {
 	return t != nil && (t.GVK != nil || len(t.References) > 0)
 }
 
-func (m *MarkdownRenderer) RenderType(t *types.Type) string {
+func (m *MarkdownRenderer) RenderType(t *types.Field) string {
 	var sb strings.Builder
-	switch t.Kind {
-	case types.MapKind:
-		sb.WriteString("object (")
-		sb.WriteString("keys:")
-		sb.WriteString(m.RenderTypeLink(t.KeyType))
-		sb.WriteString(", values:")
-		sb.WriteString(m.RenderTypeLink(t.ValueType))
-		sb.WriteString(")")
-	case types.SliceKind:
-		sb.WriteString(m.RenderTypeLink(t.UnderlyingType))
+	enum := t.Markers.Get("kubebuilder:validation:Enum")
+	switch {
+	case enum != nil:
+		sb.WriteString("enum[")
+		for i, v := range enum.(markers.Enum) {
+			sb.WriteString("`")
+			sb.WriteString(v.(string))
+			if i != len(enum.(markers.Enum))-1 {
+				sb.WriteString("`, ")
+			} else {
+				sb.WriteString("`")
+			}
+		}
+		sb.WriteString("]")
+
+	case t.Type.Kind == types.MapKind:
+		sb.WriteString("map{")
+		sb.WriteString(m.RenderTypeLink(t.Type.KeyType))
+		sb.WriteString(", ")
+		sb.WriteString(m.RenderTypeLink(t.Type.ValueType))
+		sb.WriteString("}")
+
+	case t.Type.Kind == types.SliceKind:
+		sb.WriteString(m.RenderTypeLink(t.Type.UnderlyingType))
 		sb.WriteString(" array")
+
 	default:
-		sb.WriteString(m.RenderTypeLink(t))
+		sb.WriteString(m.RenderTypeLink(t.Type))
 	}
 
 	return sb.String()
+}
+
+func (m *MarkdownRenderer) RenderValidation(f *types.Field) string {
+	fmt.Printf("%#v\n", f)
+
+	var v []string
+	if f.Markers.Get("kubebuilder:validation:Required") != nil {
+		v = append(v, "required")
+	}
+	if m := f.Markers.Get("kubebuilder:validation:MinLength"); m != nil {
+		v = append(v, fmt.Sprintf("minLength: %d", m))
+	}
+	if m := f.Markers.Get("kubebuilder:validation:Minimum"); m != nil {
+		v = append(v, fmt.Sprintf("min: %.0f", m.(markers.Minimum).Value()))
+	}
+	if m := f.Markers.Get("kubebuilder:validation:Maximum"); m != nil {
+		v = append(v, fmt.Sprintf("max: %.0f", m.(markers.Maximum).Value()))
+	}
+	if m := f.Markers.Get("kubebuilder:validation:Pattern"); m != nil {
+		v = append(v, fmt.Sprintf("pattern: %s", m))
+	}
+	if m := f.Markers.Get("kubebuilder:validation:Format"); m != nil {
+		v = append(v, fmt.Sprintf("format: %s", m))
+	}
+
+	return strings.Join(v, ", ")
 }
 
 func (m *MarkdownRenderer) RenderTypeLink(t *types.Type) string {

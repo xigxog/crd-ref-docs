@@ -5,15 +5,18 @@
 
 {{ $gv.Doc }}
 
-{{- if $gv.Kinds  }}
-### Resource Types
-{{- range $gv.SortedKinds }}
-- {{ $gv.TypeForKind . | markdownRenderTypeLink }}
-{{- end }}
+{{ range $gv.SortedTypes }}
+{{- if .GVK }}
+{{ template "type" . }}
+{{ end }}
 {{ end }}
 
+## Types
+
 {{ range $gv.SortedTypes }}
+{{- if not .GVK }}
 {{ template "type" . }}
+{{ end }}
 {{ end }}
 
 {{- end -}}

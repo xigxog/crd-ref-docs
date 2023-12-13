@@ -65,7 +65,7 @@ func (adr *AsciidoctorRenderer) Render(gvd []types.GroupVersionDetails) error {
 		return err
 	}
 
-	f, err := createOutFile(adr.conf.OutputPath, "out.asciidoc")
+	f, _ := createOutFile(adr.conf.OutputPath, "out.asciidoc")
 	defer f.Close()
 
 	return tmpl.ExecuteTemplate(f, mainTemplate, gvd)
