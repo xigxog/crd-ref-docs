@@ -129,19 +129,22 @@ func (m *MarkdownRenderer) RenderValidation(f *types.Field) string {
 		v = append(v, "required")
 	}
 	if m := f.Markers.Get("kubebuilder:validation:MinLength"); m != nil {
-		v = append(v, fmt.Sprintf("minLength: %d", m))
+		v = append(v, fmt.Sprint("minLength: ", m))
 	}
 	if m := f.Markers.Get("kubebuilder:validation:Minimum"); m != nil {
-		v = append(v, fmt.Sprintf("min: %.0f", m.(markers.Minimum).Value()))
+		v = append(v, fmt.Sprint("min: ", m.(markers.Minimum).Value()))
 	}
 	if m := f.Markers.Get("kubebuilder:validation:Maximum"); m != nil {
-		v = append(v, fmt.Sprintf("max: %.0f", m.(markers.Maximum).Value()))
+		v = append(v, fmt.Sprint("max: ", m.(markers.Maximum).Value()))
 	}
 	if m := f.Markers.Get("kubebuilder:validation:Pattern"); m != nil {
-		v = append(v, fmt.Sprintf("pattern: %s", m))
+		v = append(v, fmt.Sprint("pattern: ", m))
 	}
 	if m := f.Markers.Get("kubebuilder:validation:Format"); m != nil {
-		v = append(v, fmt.Sprintf("format: %s", m))
+		v = append(v, fmt.Sprint("format: ", m))
+	}
+	if m := f.Markers.Get("kubebuilder:default"); m != nil {
+		v = append(v, fmt.Sprint("default: ", m.(markers.Default).Value))
 	}
 
 	return strings.Join(v, ", ")
