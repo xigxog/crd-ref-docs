@@ -1,6 +1,6 @@
 module github.com/xigxog/crd-ref-docs
 
-go 1.22
+go 1.20
 
 require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
