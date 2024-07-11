@@ -6,6 +6,13 @@
 
 {{ $type.Doc }}
 
+{{ if $type.Validation -}}
+_Validation:_
+{{- range $type.Validation }}
+- {{ . }}
+{{- end }}
+{{- end }}
+
 {{ if $type.References -}}
 <p style="font-size:.6rem;">
 Used by:<br>
@@ -25,6 +32,13 @@ Used by:<br>
 
 {{ range $type.Members -}}
 | `{{ .Name  }}` | <div style="white-space:nowrap">{{ markdownRenderType . }}<div> | <div style="max-width:30rem">{{ template "type_members" . }}</div> | <div style="white-space:nowrap">{{ markdownRenderValidation . }}</div> |
+{{ end -}}
+{{ end -}}
+
+{{ if $type.EnumValues -}} 
+| Field | Description |
+{{ range $type.EnumValues -}}
+| `{{ .Name }}` | {{ markdownRenderFieldDoc .Doc }} |
 {{ end -}}
 {{ end -}}
 

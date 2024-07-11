@@ -14,10 +14,13 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 package processor
 
 import (
 	"fmt"
+	"go/ast"
+	"go/token"
 	gotypes "go/types"
 	"regexp"
 	"sort"
@@ -64,6 +67,8 @@ func Process(config *config.Config) ([]types.GroupVersionDetails, error) {
 	}
 
 	p.types.InlineTypes(p.propagateReference)
+	p.types.PropagateMarkers()
+	p.parseMarkers()
 
 	// collect references between types
 	for typeName, refs := range p.references {
@@ -122,7 +127,7 @@ func Process(config *config.Config) ([]types.GroupVersionDetails, error) {
 }
 
 func newProcessor(compiledConfig *compiledConfig, maxDepth int) (*processor, error) {
-	registry, err := mkRegistry()
+	registry, err := mkRegistry(compiledConfig.markers)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +282,12 @@ func (p *processor) extractPkgDocumentation(pkg *loader.Package) string {
 }
 
 func (p *processor) processType(pkg *loader.Package, parentType *types.Type, t gotypes.Type, depth int) *types.Type {
-	typeDef := mkType(pkg, t)
+	typeDef, rawType := mkType(pkg, t)
+	typeID := types.Identifier(typeDef)
+	if !rawType && p.shouldIgnoreType(typeID) {
+		zap.S().Debugw("Skipping excluded type", "type", typeID)
+		return nil
+	}
 
 	if processed, ok := p.types[typeDef.UID]; ok {
 		return processed
@@ -325,6 +335,9 @@ func (p *processor) processType(pkg *loader.Package, parentType *types.Type, t g
 		info := p.parser.LookupType(pkg, typeDef.Name)
 		if info != nil {
 			underlying = pkg.TypesInfo.TypeOf(info.RawSpec.Type)
+		}
+		if underlying.String() == "string" {
+			typeDef.EnumValues = lookupConstantValuesForAliasedType(pkg, typeDef.Name)
 		}
 		typeDef.UnderlyingType = p.processType(pkg, typeDef, underlying, depth+1)
 		p.addReference(typeDef, typeDef.UnderlyingType)
@@ -435,7 +448,7 @@ func (p *processor) processStructFields(parentType *types.Type, pkg *loader.Pack
 	}
 }
 
-func mkType(pkg *loader.Package, t gotypes.Type) *types.Type {
+func mkType(pkg *loader.Package, t gotypes.Type) (*types.Type, bool) {
 	qualifier := gotypes.RelativeTo(pkg.Types)
 	cleanTypeName := strings.TrimLeft(gotypes.TypeString(t, qualifier), "*[]")
 
@@ -454,7 +467,7 @@ func mkType(pkg *loader.Package, t gotypes.Type) *types.Type {
 		typeDef.Imported = true
 	}
 
-	return typeDef
+	return typeDef, rawType
 }
 
 // Every child that has a reference to 'originalType', will also get a reference to 'additionalType'.
@@ -485,19 +498,121 @@ func (p *processor) addReference(parent *types.Type, child *types.Type) {
 	}
 }
 
-func mkRegistry() (*markers.Registry, error) {
+func mkRegistry(customMarkers []config.Marker) (*markers.Registry, error) {
 	registry := &markers.Registry{}
-	err := registry.Define(objectRootMarker, markers.DescribesType, true)
-	if err != nil {
+	if err := registry.Define(objectRootMarker, markers.DescribesType, true); err != nil {
 		return nil, err
 	}
 
 	for _, marker := range crdmarkers.AllDefinitions {
-		err = registry.Register(marker.Definition)
-		if err != nil {
+		if err := registry.Register(marker.Definition); err != nil {
 			return nil, err
 		}
 	}
 
+	for _, marker := range customMarkers {
+		t := markers.DescribesField
+		switch marker.Target {
+		case config.TargetTypePackage:
+			t = markers.DescribesPackage
+		case config.TargetTypeType:
+			t = markers.DescribesType
+		case config.TargetTypeField:
+			t = markers.DescribesField
+		default:
+			zap.S().Warnf("Skipping custom marker %s with unknown target type %s", marker.Name, marker.Target)
+			continue
+		}
+
+		if err := registry.Define(marker.Name, t, struct{}{}); err != nil {
+			return nil, fmt.Errorf("failed to define custom marker %s: %w", marker.Name, err)
+		}
+	}
+
 	return registry, nil
+}
+
+func parseMarkers(markers markers.MarkerValues) (string, []string) {
+	defaultValue := ""
+	validation := []string{}
+
+	markerNames := make([]string, 0, len(markers))
+	for name := range markers {
+		markerNames = append(markerNames, name)
+	}
+	sort.Strings(markerNames)
+
+	for _, name := range markerNames {
+		value := markers[name][len(markers[name])-1]
+
+		if strings.HasPrefix(name, "kubebuilder:validation:") {
+			name := strings.TrimPrefix(name, "kubebuilder:validation:")
+
+			switch name {
+			case "Pattern":
+				value = fmt.Sprintf("`%s`", value)
+			// FIXME: XValidation currently removed due to being long and difficult to read.
+			// E.g. "XValidation: {self.page < 200 Please start a new book.}"
+			case "XValidation":
+				continue
+			}
+			validation = append(validation, fmt.Sprintf("%s: %v", name, value))
+		}
+
+		if name == "kubebuilder:default" {
+			if value, ok := value.(crdmarkers.Default); ok {
+				defaultValue = fmt.Sprintf("%v", value.Value)
+				if strings.HasPrefix(defaultValue, "map[") {
+					defaultValue = strings.TrimPrefix(defaultValue, "map[")
+					defaultValue = strings.TrimSuffix(defaultValue, "]")
+					defaultValue = fmt.Sprintf("{ %s }", defaultValue)
+				}
+			}
+		}
+	}
+
+	return defaultValue, validation
+}
+
+func (p *processor) parseMarkers() {
+	for _, t := range p.types {
+		t.Default, t.Validation = parseMarkers(t.Markers)
+		for _, f := range t.Fields {
+			f.Default, f.Validation = parseMarkers(f.Markers)
+		}
+	}
+}
+
+func lookupConstantValuesForAliasedType(pkg *loader.Package, aliasTypeName string) []types.EnumValue {
+	values := []types.EnumValue{}
+	for _, file := range pkg.Syntax {
+		for _, decl := range file.Decls {
+			node, ok := decl.(*ast.GenDecl)
+			if !ok || node.Tok != token.CONST {
+				continue
+			}
+			for _, spec := range node.Specs {
+				// look for constant declaration
+				v, ok := spec.(*ast.ValueSpec)
+				if !ok {
+					continue
+				}
+				// value type must match the alias type name and have exactly one value
+				if id, ok := v.Type.(*ast.Ident); !ok || id.String() != aliasTypeName || len(v.Values) != 1 {
+					continue
+				}
+				// convert to a basic type to access to the value
+				b, ok := v.Values[0].(*ast.BasicLit)
+				if !ok {
+					continue
+				}
+				values = append(values, types.EnumValue{
+					// remove the '"' signs from the start and end of the value
+					Name: b.Value[1 : len(b.Value)-1],
+					Doc:  v.Doc.Text(),
+				})
+			}
+		}
+	}
+	return values
 }
